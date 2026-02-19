@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #059669;
+  --brand-soft: #10b981;
+  --ink: #0f291e;
+  --paper: #f7fcf9;
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(16, 185, 129, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(5, 150, 105, 0.12), transparent 50%),
+    linear-gradient(180deg, #ffffff 0%, var(--paper) 45%, #eef8f2 100%);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(5, 150, 105, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(5, 150, 105, 0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Single contained Ketcher frame — tools must not escape */
+.ketcher-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 640px;
+  max-width: 100%;
+  border: 1px solid rgba(5, 150, 105, 0.2);
+  border-radius: 1rem;
+  overflow: hidden;
+  isolation: isolate;
+  background: #fff;
+  position: relative;
+  font-family: var(--font-sans);
+}
+
+.ketcher-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ketcher-canvas > .Ketcher-root,
+.ketcher-canvas > div.Ketcher-root,
+.ketcher-wrap .Ketcher-root.Editor-module_editor__o0Gjz,
+.ketcher-wrap .Ketcher-root {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.ketcher-wrap [class*="App-module_app"] {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+.ketcher-wrap [class*="Floating"],
+.ketcher-wrap [class*="floating"] {
+  max-width: 100%;
+}
+
+.mol-svg svg {
+  max-width: 100%;
+  height: auto;
+}
