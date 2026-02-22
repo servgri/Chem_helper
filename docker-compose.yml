@@ -1,0 +1,57 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: toxmol-api
+    expose:
+      - "8000"
+    environment:
+      PYTHONPATH: /workspace
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-toxmol-cloud-change-me}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DJANGO_DB_PATH: /workspace/var/db.sqlite3
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:8510,http://localhost:8510}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://127.0.0.1:8510,http://localhost:8510}
+      TOXMOL_REPO_ROOT: /workspace
+      TOXMOL_FORCE_CPU: "1"
+      CLEARML_ENABLED: "0"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - toxmol_models:/workspace/results/models
+      - toxmol_processed:/workspace/data/processed
+      - toxmol_var:/workspace/var
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 8
+      start_period: 900s
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VITE_API_URL: ""
+    container_name: toxmol-web
+    ports:
+      - "8510:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  toxmol_models:
+  toxmol_processed:
+  toxmol_var:

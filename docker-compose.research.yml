@@ -1,0 +1,43 @@
+# Optional research stack (Jupyter). Demo UI uses docker-compose.yml instead.
+# CPU: docker compose -f docker-compose.research.yml --profile cpu up --build
+# GPU: docker compose -f docker-compose.research.yml --profile gpu up --build
+
+services:
+  research:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    container_name: toxmol-research
+    ports:
+      - "8889:8888"
+    volumes:
+      - ./notebooks:/workspace/notebooks
+      - ./data:/workspace/data
+      - ./src:/workspace/src
+      - ./results:/workspace/results
+    environment:
+      PYTHONPATH: /workspace
+      TOXMOL_FORCE_CPU: "1"
+      CLEARML_ENABLED: ${CLEARML_ENABLED:-0}
+    working_dir: /workspace
+    profiles: ["cpu"]
+
+  research-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: toxmol-research-gpu
+    ports:
+      - "8889:8888"
+    volumes:
+      - ./notebooks:/workspace/notebooks
+      - ./data:/workspace/data
+      - ./src:/workspace/src
+      - ./results:/workspace/results
+    environment:
+      PYTHONPATH: /workspace
+      TOXMOL_FORCE_CPU: "0"
+      NVIDIA_VISIBLE_DEVICES: all
+    working_dir: /workspace
+    gpus: all
+    profiles: ["gpu"]
