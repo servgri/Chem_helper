@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 280" width="980" height="280" role="img" aria-label="Research pipeline ToxMol">
+  <rect width="980" height="280" fill="#f7fcf9"/>
+  <text x="40" y="36" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#064e3b">Research ’ serving</text>
+
+  <g>
+    <rect x="40" y="70" width="150" height="120" rx="12" fill="#ffffff" stroke="#6ee7b7"/>
+    <text x="115" y="124" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#064e3b">Tox21</text>
+    <text x="115" y="146" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#047857">~7.8k mols · 12 assays</text>
+  </g>
+  <text x="205" y="134" font-size="22" fill="#059669">’</text>
+  <g>
+    <rect x="230" y="70" width="150" height="120" rx="12" fill="#ffffff" stroke="#6ee7b7"/>
+    <text x="305" y="118" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#064e3b">EDA</text>
+    <text x="305" y="140" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#047857">10;0=A NR/SR</text>
+    <text x="305" y="158" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#047857">physchem, ?@>?CA:8</text>
+  </g>
+  <text x="395" y="134" font-size="22" fill="#059669">’</text>
+  <g>
+    <rect x="420" y="70" width="160" height="120" rx="12" fill="#ffffff" stroke="#6ee7b7"/>
+    <text x="500" y="118" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#064e3b">Featurization</text>
+    <text x="500" y="140" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#047857">ECFP4 2048 18B</text>
+    <text x="500" y="158" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#047857">3@0DK 4;O GNN</text>
+  </g>
+  <text x="595" y="134" font-size="22" fill="#059669">’</text>
+  <g>
+    <rect x="620" y="70" width="150" height="120" rx="12" fill="#ffffff" stroke="#6ee7b7"/>
+    <text x="695" y="118" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#064e3b">AutoML</text>
+    <text x="695" y="140" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#047857">FLAML + Lightning</text>
+    <text x="695" y="158" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#047857">ClearML offline</text>
+  </g>
+  <text x="785" y="134" font-size="22" fill="#059669">’</text>
+  <g>
+    <rect x="810" y="70" width="130" height="120" rx="12" fill="#059669"/>
+    <text x="875" y="124" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">API</text>
+    <text x="875" y="146" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" fill="#ecfdf5">joblib winners</text>
+  </g>
+  <text x="490" y="240" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#065f46">>CB1C: notebooks/research.ipynb.  45<>->1@07 =5 2E>48B  B>;L:> :;0AA8G5A:85 0@B5D0:BK 8=D5@5=A0.</text>
+</svg>
