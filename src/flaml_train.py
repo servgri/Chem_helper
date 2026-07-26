@@ -15,13 +15,95 @@ from src.qsar_utils import (
     predict_proba_binary,
 )
 
+
+def _merge_custom_hp(*parts: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    for part in parts:
+        if not part:
+            continue
+        for est, hps in part.items():
+            est_hp = dict(out.get(est) or {})
+            est_hp.update(hps or {})
+            out[est] = est_hp
+    return out
+
+
+def _custom_hp_has_gpu_knobs(custom_hp: Optional[Dict[str, Any]]) -> bool:
+    for hps in (custom_hp or {}).values():
+        if not isinstance(hps, dict):
+            continue
+        if "task_type" in hps or "devices" in hps or "device" in hps:
+            return True
+        tm = hps.get("tree_method")
+        if isinstance(tm, dict):
+            init = str(tm.get("init_value", "")).lower()
+            if "gpu" in init:
+                return True
+    return False
+
+
+def _is_alloc_failure(exc: BaseException) -> bool:
+    msg = str(exc)
+    if "Unable to allocate" in msg or "Cannot allocate memory" in msg:
+        return True
+    if isinstance(exc, MemoryError):
+        return True
+    if isinstance(exc, OSError) and getattr(exc, "errno", None) == 12:
+        return True
+    return False
+
+
+def _looks_gpu_related(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return any(tok in msg for tok in ("cuda", "gpu", "cupy", "device ordinal", "out of memory"))
+
+
+def _strip_gpu_knobs(custom_hp: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    cleaned: Dict[str, Any] = {}
+    for est, hps in dict(custom_hp or {}).items():
+        est_hp = dict(hps or {})
+        for k in ("tree_method", "task_type", "devices", "device"):
+            est_hp.pop(k, None)
+        if est_hp:
+            cleaned[est] = est_hp
+    return cleaned
+
+
+def _memory_safe_estimator_hp() -> Dict[str, Any]:
+    """Cap CatBoost threads only — do not pin ``n_jobs`` in custom_hp.
+
+    FLAML already forwards AutoML ``n_jobs`` into estimators; setting it again
+    via ``custom_hp`` raises ``got multiple values for keyword argument 'n_jobs'``.
+    """
+    from flaml import tune
+
+    return {
+        "catboost": {
+            "thread_count": {"domain": tune.choice([1]), "init_value": 1},
+        },
+    }
+
+
+def _release_memory() -> None:
+    import gc
+
+    gc.collect()
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Classical FLAML AutoML
 # ---------------------------------------------------------------------------
 
 DEFAULT_CLASSICAL_ESTIMATORS: List[str] = [
-    "lrl1",
-    "lrl2",
+    # Skip lrl1/lrl2 on wide FP matrices: sklearn casts folds to float64 and
+    # FLAML then floods logs with _ArrayMemoryError on (fold, n_features).
     "rf",
     "xgboost",
     "lgbm",
@@ -49,7 +131,19 @@ def _available_classical_estimators(
             except ImportError:
                 continue
         available.append(name)
-    return available or ["rf", "extra_tree", "lrl2"]
+    return available or ["rf", "extra_tree"]
+
+
+def _drop_memory_heavy_linear_estimators(
+    estimators: Sequence[str],
+    n_features: int,
+    *,
+    feature_threshold: int = 512,
+) -> List[str]:
+    """Drop lrl1/lrl2 when the feature matrix is wide enough that float64 CV copies hurt."""
+    if int(n_features) < feature_threshold:
+        return list(estimators)
+    return [e for e in estimators if e not in {"lrl1", "lrl2"}]
 
 
 def default_nn_config(model_type: str) -> Dict[str, Any]:
@@ -101,8 +195,13 @@ def run_classical_flaml(
         log_params,
         save_and_upload_sklearn_model,
     )
+    from src.device import configure_training_runtime
 
+    configure_training_runtime()
     estimators = _available_classical_estimators(estimator_list)
+    estimators = _drop_memory_heavy_linear_estimators(
+        estimators, int(np.shape(split.X_train)[1])
+    )
     task_name = f"FLAML/{target}" if target else "FLAML/classical"
     task = None
     if use_clearml:
@@ -136,12 +235,22 @@ def run_classical_flaml(
             "n_splits": n_splits,
             "verbose": verbose,
             "estimator_list": estimators,
+            # Avoid nested joblib forks (Errno 12 despite free host RAM).
+            "n_jobs": 1,
         }
         from src.device import flaml_gpu_settings, prefer_boosting_gpu, resolve_training_device
 
         kind, dev_info = resolve_training_device()
-        if prefer_boosting_gpu():
-            settings.update(flaml_gpu_settings())
+        gpu_settings = flaml_gpu_settings() if prefer_boosting_gpu() else {}
+        if gpu_settings:
+            settings["custom_hp"] = _merge_custom_hp(
+                settings.get("custom_hp"),
+                gpu_settings.get("custom_hp"),
+            )
+        settings["custom_hp"] = _merge_custom_hp(
+            settings.get("custom_hp"),
+            _memory_safe_estimator_hp(),
+        )
         if task is not None:
             log_params(task, {"device": kind, **{f"dev_{k}": v for k, v in dev_info.items() if k != "error"}}, name="device")
 
@@ -168,28 +277,22 @@ def run_classical_flaml(
 
         try:
             automl.fit(split.X_train, split.y_train, **fit_kwargs)
-        except Exception as gpu_exc:
-            # CatBoost/XGBoost may fail if CUDA runtime is missing — retry on CPU.
-            if "custom_hp" in fit_kwargs:
-                print(f"[flaml] GPU boosting failed ({gpu_exc}); retrying on CPU")
-                # Drop GPU knobs but keep scale_pos_weight if present.
-                custom_hp = dict(fit_kwargs.get("custom_hp") or {})
-                for est in list(custom_hp.keys()):
-                    est_hp = dict(custom_hp[est])
-                    for k in ("tree_method", "task_type", "devices", "device"):
-                        est_hp.pop(k, None)
-                    if est_hp:
-                        custom_hp[est] = est_hp
-                    else:
-                        custom_hp.pop(est, None)
-                if custom_hp:
-                    fit_kwargs["custom_hp"] = custom_hp
-                else:
-                    fit_kwargs.pop("custom_hp", None)
-                automl = AutoML()
-                automl.fit(split.X_train, split.y_train, **fit_kwargs)
-            else:
+        except Exception as fit_exc:
+            had_gpu = _custom_hp_has_gpu_knobs(fit_kwargs.get("custom_hp"))
+            should_retry = had_gpu and (_is_alloc_failure(fit_exc) or _looks_gpu_related(fit_exc))
+            if not should_retry:
                 raise
+
+            print(f"[flaml] GPU/alloc failure ({fit_exc}); stripping GPU knobs and retrying on CPU")
+            cleaned = _strip_gpu_knobs(fit_kwargs.get("custom_hp"))
+            if cleaned:
+                fit_kwargs["custom_hp"] = cleaned
+            else:
+                fit_kwargs.pop("custom_hp", None)
+            fit_kwargs["n_jobs"] = 1
+            _release_memory()
+            automl = AutoML()
+            automl.fit(split.X_train, split.y_train, **fit_kwargs)
 
         y_prob_train = predict_proba_binary(automl, split.X_train)
         threshold, _ = best_f1_threshold(split.y_train, y_prob_train)
@@ -237,6 +340,7 @@ def run_classical_flaml(
             "clearml_model_path": str(model_path) if model_path else None,
         }
     finally:
+        _release_memory()
         close_task(task)
 
 
@@ -288,6 +392,24 @@ def default_nn_search_space(model_type: str) -> Dict[str, Any]:
     elif model_type == "gnn":
         base["n_message_passes"] = tune.choice([2, 3, 4])
     return base
+
+
+def default_nn_low_cost_partial_config(model_type: str) -> Dict[str, Any]:
+    """Cheap starting point for FLAML cost-frugal search (small net, few epochs)."""
+    cfg: Dict[str, Any] = {
+        "hidden_dim": 64,
+        "n_layers": 2,
+        "batch_size": 64,
+        "max_epochs": 10,
+    }
+    if model_type == "resnet":
+        cfg["n_blocks"] = 2
+    elif model_type == "transformer":
+        cfg["n_heads"] = 2
+        cfg["ff_dim"] = 128
+    elif model_type == "gnn":
+        cfg["n_message_passes"] = 2
+    return cfg
 
 
 def _build_datamodule(
@@ -494,7 +616,9 @@ def tune_lightning_model(
     except ImportError:  # pragma: no cover
         import pytorch_lightning as pl  # type: ignore
     from flaml import tune
+    from src.device import configure_training_runtime
 
+    configure_training_runtime()
     backends = _import_nn_backends()
     space = search_space or default_nn_search_space(model_type)
 
@@ -569,6 +693,7 @@ def tune_lightning_model(
         "metric": metric,
         "mode": mode,
         "verbose": 0,
+        "low_cost_partial_config": default_nn_low_cost_partial_config(model_type),
     }
     if time_budget_s is not None:
         run_kwargs["time_budget_s"] = time_budget_s

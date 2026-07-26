@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import warnings
 from typing import Any, Dict, Optional, Tuple
+
+_TORCH_RUNTIME_CONFIGURED = False
 
 
 def force_cpu() -> bool:
@@ -19,6 +23,33 @@ def cuda_available() -> bool:
         return bool(torch.cuda.is_available())
     except Exception:
         return False
+
+
+def configure_training_runtime() -> None:
+    """Quiet noisy FLAML/Lightning messages; enable Tensor Core matmul when CUDA is on."""
+    global _TORCH_RUNTIME_CONFIGURED
+    if _TORCH_RUNTIME_CONFIGURED:
+        return
+
+    warnings.filterwarnings(
+        "ignore",
+        message=r".*[Ll]ow-cost partial config.*",
+    )
+    logging.getLogger("flaml").setLevel(logging.ERROR)
+    logging.getLogger("flaml.tune").setLevel(logging.ERROR)
+    logging.getLogger("flaml.automl").setLevel(logging.ERROR)
+    for name in ("lightning", "lightning.pytorch", "pytorch_lightning"):
+        logging.getLogger(name).setLevel(logging.ERROR)
+
+    if cuda_available():
+        try:
+            import torch
+
+            torch.set_float32_matmul_precision("medium")
+        except Exception:
+            pass
+
+    _TORCH_RUNTIME_CONFIGURED = True
 
 
 def device_summary() -> Dict[str, Any]:
@@ -46,6 +77,7 @@ def device_summary() -> Dict[str, Any]:
 
 def lightning_trainer_kwargs(precision: Optional[str] = None) -> Dict[str, Any]:
     """Kwargs for ``pl.Trainer`` — GPU when CUDA is visible, else CPU."""
+    configure_training_runtime()
     kwargs: Dict[str, Any] = {
         "devices": 1,
         "enable_progress_bar": False,
@@ -88,7 +120,11 @@ def flaml_gpu_settings() -> Dict[str, Any]:
                 "init_value": "gpu_hist",
             },
         },
-        "catboost": {
+    }
+    # CatBoost GPU often hits host Errno 12 (pinned RAM) even when free RAM looks high;
+    # enable only when explicitly requested.
+    if os.environ.get("TOXMOL_CATBOOST_GPU", "").strip().lower() in {"1", "true", "yes", "on"}:
+        custom_hp["catboost"] = {
             "task_type": {
                 "domain": tune.choice(["GPU"]),
                 "init_value": "GPU",
@@ -97,8 +133,7 @@ def flaml_gpu_settings() -> Dict[str, Any]:
                 "domain": tune.choice(["0"]),
                 "init_value": "0",
             },
-        },
-    }
+        }
     # LightGBM GPU needs a GPU-enabled build; enable only when explicitly requested
     if os.environ.get("TOXMOL_LGBM_GPU", "").strip().lower() in {"1", "true", "yes"}:
         custom_hp["lgbm"] = {
