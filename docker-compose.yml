@@ -9,7 +9,66 @@ services:
       - ./data:/workspace/data
       - ./src:/workspace/src
       - ./results:/workspace/results
+    env_file:
+      - .env
     environment:
       - PYTHONPATH=/workspace
-      - JUPYTER_TOKEN=toxmol
+      - JUPYTER_TOKEN=
+      - TOXMOL_BOOST_GPU=${TOXMOL_BOOST_GPU:-auto}
+      - TOXMOL_FORCE_CPU=${TOXMOL_FORCE_CPU:-0}
+      - TOXMOL_LGBM_GPU=${TOXMOL_LGBM_GPU:-0}
+      - TOXMOL_PRECISION=${TOXMOL_PRECISION:-}
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - CLEARML_ENABLED=${CLEARML_ENABLED:-1}
+      - CLEARML_OFFLINE_MODE=${CLEARML_OFFLINE_MODE:-1}
+      - CLEARML_PROJECT=${CLEARML_PROJECT:-ToxMol/Tox21-QSAR}
+      - CLEARML_WEB_HOST=${CLEARML_WEB_HOST:-}
+      - CLEARML_API_HOST=${CLEARML_API_HOST:-}
+      - CLEARML_FILES_HOST=${CLEARML_FILES_HOST:-}
+      - CLEARML_API_ACCESS_KEY=${CLEARML_API_ACCESS_KEY:-}
+      - CLEARML_API_SECRET_KEY=${CLEARML_API_SECRET_KEY:-}
     working_dir: /workspace
+    gpus: all
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: toxmol-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/workspace/backend
+      - ./src:/workspace/src
+      - ./data:/workspace/data
+      - ./results:/workspace/results
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/workspace
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-1}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,api}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://web:5173}
+      - TOXMOL_REPO_ROOT=/workspace
+      - TOXMOL_FORCE_CPU=1
+      - CLEARML_ENABLED=0
+    working_dir: /workspace/backend
+
+  # Vite React frontend — see frontend/Dockerfile (development target)
+  web:
+    build:
+      context: ./frontend
+      target: development
+    container_name: toxmol-web
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:8000}
+    depends_on:
+      - api
+
+volumes:
+  web_node_modules:

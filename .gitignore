@@ -12,14 +12,26 @@ __pycache__/
 .gigacode/
 *.log
 
+# Django
+backend/db.sqlite3
+backend/staticfiles/
+backend/media/
+
 # large / generated
 results/*
 !results/.gitkeep
+!results/models/
+results/models/*
+!results/models/.gitkeep
 data/raw/*
 !data/raw/.gitkeep
 !data/raw/tox21.csv.gz
 data/processed/*
 !data/processed/.gitkeep
+
+# frontend
+frontend/node_modules/
+frontend/dist/
 
 # do not track legacy heavy deps if reinstalled
 legacy/.venv/
