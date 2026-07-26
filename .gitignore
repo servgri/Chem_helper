@@ -1,0 +1,26 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.env
+*.db
+.DS_Store
+.idea/
+.gigacode/
+*.log
+
+# large / generated
+results/*
+!results/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/tox21.csv.gz
+data/processed/*
+!data/processed/.gitkeep
+
+# do not track legacy heavy deps if reinstalled
+legacy/.venv/
+legacy/frontend/node_modules/

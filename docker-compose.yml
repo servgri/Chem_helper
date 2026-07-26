@@ -1,0 +1,15 @@
+services:
+  research:
+    build: .
+    container_name: toxmol-qsar-research
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/workspace/notebooks
+      - ./data:/workspace/data
+      - ./src:/workspace/src
+      - ./results:/workspace/results
+    environment:
+      - PYTHONPATH=/workspace
+      - JUPYTER_TOKEN=toxmol
+    working_dir: /workspace

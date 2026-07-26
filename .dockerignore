@@ -1,0 +1,12 @@
+legacy/
+.venv/
+.git/
+.idea/
+.gigacode/
+.env
+**/__pycache__/
+**/.ipynb_checkpoints/
+**/node_modules/
+results/*
+!results/.gitkeep
+*.log
